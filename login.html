@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <title>Login · CampusConnect</title>
+  </head>
+  <body>
+    <div id="navbar"></div>
+
+    <main class="min-h-[calc(100vh-64px)] flex items-center justify-center bg-gradient-to-b from-brand-50 to-surface-muted py-16">
+      <div class="container-page">
+        <div class="max-w-md mx-auto card p-8 animate-fade-up">
+          <div class="text-center">
+            <span class="inline-flex h-12 w-12 items-center justify-center rounded-xl bg-brand-600 text-white text-lg font-bold mx-auto">CC</span>
+            <h1 class="mt-4 text-2xl font-bold">Welcome back</h1>
+            <p class="mt-1 text-sm text-slate-500">Sign in to manage your events and clubs.</p>
+          </div>
+
+          <form id="login-form" class="mt-8 space-y-5" novalidate>
+            <div>
+              <label class="form-label" for="email">College email</label>
+              <input id="email" name="email" type="email" class="input-field" placeholder="you@college.edu" autocomplete="email" />
+              <p class="mt-1 text-xs text-rose-600 hidden" data-error-for="email">Enter a valid email address.</p>
+            </div>
+
+            <div>
+              <label class="form-label" for="password">Password</label>
+              <input id="password" name="password" type="password" class="input-field" placeholder="••••••••" autocomplete="current-password" />
+              <p class="mt-1 text-xs text-rose-600 hidden" data-error-for="password">Password must be at least 6 characters.</p>
+            </div>
+
+            <div class="flex items-center justify-between text-sm">
+              <label class="inline-flex items-center gap-2 text-slate-600">
+                <input type="checkbox" class="rounded border-slate-300 text-brand-600 focus:ring-brand-500" />
+                Remember me
+              </label>
+              <a href="#" class="text-brand-600 hover:text-brand-700 font-medium">Forgot password?</a>
+            </div>
+
+            <button type="submit" id="login-submit" class="btn-primary w-full">
+              Sign in
+            </button>
+          </form>
+
+          <p class="mt-6 text-center text-sm text-slate-500">
+            New to CampusConnect?
+            <a href="#" class="text-brand-600 font-medium hover:text-brand-700">Create an account</a>
+          </p>
+        </div>
+      </div>
+    </main>
+
+    <div id="footer"></div>
+
+    <script type="module" src="/src/login.js"></script>
+  </body>
+</html>
