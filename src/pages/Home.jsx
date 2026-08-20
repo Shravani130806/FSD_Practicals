@@ -1,32 +1,80 @@
-import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { useState, useEffect } from 'react'
+import { Link, useSearchParams } from 'react-router-dom'
 import EventCard from '../components/EventCard.jsx'
 import ClubCard from '../components/ClubCard.jsx'
 import EventModal from '../components/EventModal.jsx'
-import { events } from '../data/events.js'
-import { clubs } from '../data/clubs.js'
-
-const categories = ['All', ...new Set(events.map((e) => e.category))]
+import { getEvents, getClubs } from '../services/api.js'
 
 export default function Home() {
-  // Search text typed into the events search box. Filtering happens
-  // straight off this state on every render — no useEffect needed, since
-  // it's a pure computation over data we already have in memory.
+  // --- Step 3 UI state (unchanged) ---
   const [searchText, setSearchText] = useState('')
-
-  // Which category pill is active. Defaults to "All".
   const [selectedCategory, setSelectedCategory] = useState('All')
-
-  // Which event (if any) is open in the details modal. `null` = closed.
-  // Using the event object itself (instead of a separate isModalOpen
-  // boolean + an id) means the modal always has the data it needs and
-  // can't get out of sync with "which event is selected".
   const [selectedEvent, setSelectedEvent] = useState(null)
-
-  // Short-lived feedback banner shown after clicking "Register" — this is
-  // a frontend-only simulation; Practical 6 will replace it with a real
-  // registration API call.
   const [registeredMessage, setRegisteredMessage] = useState('')
+
+  // --- Step 4: fetched-data state ---
+  // events/clubs now start EMPTY and get filled in by useEffect once the
+  // (mock) async request resolves — the UI no longer reads the imported
+  // arrays directly.
+  const [events, setEvents] = useState([])
+  const [clubs, setClubs] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
+
+  // Bumping this number re-runs the effect below — it's how the Retry
+  // button re-triggers the fetch without duplicating the fetch logic.
+  const [retryCount, setRetryCount] = useState(0)
+
+  // Visiting "/?demoError=1" safely demonstrates the error state without
+  // touching any code: it's read from the URL via React Router, not from
+  // document/location directly, and it doesn't persist anywhere.
+  const [searchParams] = useSearchParams()
+  const forceError = searchParams.get('demoError') === '1'
+
+  // useEffect is needed here because fetching data is a SIDE EFFECT —
+  // something that reaches outside of "compute UI from props/state" and
+  // happens once when the component appears on screen, not on every
+  // render. The dependency array [retryCount, forceError] means: run this
+  // once when Home first mounts, and run it again only if retryCount or
+  // forceError change (i.e. when the user clicks Retry) — not on every
+  // keystroke in the search box.
+  useEffect(() => {
+    let cancelled = false // guards against setting state after unmount
+
+    async function loadData() {
+      try {
+        setLoading(true)
+        setError(null)
+
+        // Both requests run in parallel; await pauses this function until
+        // both Promises settle, without blocking the rest of the app.
+        const [eventsData, clubsData] = await Promise.all([
+          getEvents(forceError),
+          getClubs(),
+        ])
+
+        if (!cancelled) {
+          setEvents(eventsData)
+          setClubs(clubsData)
+        }
+      } catch (err) {
+        // A rejected Promise (network/server failure in a real API, or our
+        // simulated one) lands here instead of crashing the component.
+        if (!cancelled) setError(err.message)
+      } finally {
+        // Runs whether the try succeeded or the catch ran — loading always
+        // ends, so the UI never gets stuck on "Loading…" forever.
+        if (!cancelled) setLoading(false)
+      }
+    }
+
+    loadData()
+    return () => {
+      cancelled = true
+    }
+  }, [retryCount, forceError])
+
+  const categories = ['All', ...new Set(events.map((e) => e.category))]
 
   const filteredEvents = events.filter((event) => {
     const matchesCategory = selectedCategory === 'All' || event.category === selectedCategory
@@ -145,9 +193,42 @@ export default function Home() {
             <div className="mt-6 badge-success !text-sm !px-4 !py-2">{registeredMessage}</div>
           )}
 
-          {filteredEvents.length === 0 ? (
+          {/* LOADING STATE */}
+          {loading && (
+            <div className="mt-10 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+              {[1, 2, 3].map((n) => (
+                <div key={n} className="card p-5 space-y-3">
+                  <div className="skeleton h-32 w-full" />
+                  <div className="skeleton h-4 w-2/3" />
+                  <div className="skeleton h-3 w-full" />
+                </div>
+              ))}
+              <p className="sm:col-span-2 lg:col-span-3 text-center text-slate-500">Loading events…</p>
+            </div>
+          )}
+
+          {/* ERROR STATE */}
+          {!loading && error && (
+            <div className="mt-10 text-center">
+              <p className="text-rose-600 font-medium">Unable to load events. Please try again.</p>
+              <p className="text-sm text-slate-500 mt-1">{error}</p>
+              <button
+                type="button"
+                onClick={() => setRetryCount((count) => count + 1)}
+                className="btn-secondary mt-4"
+              >
+                Retry
+              </button>
+            </div>
+          )}
+
+          {/* EMPTY STATE */}
+          {!loading && !error && filteredEvents.length === 0 && (
             <p className="mt-10 text-center text-slate-500">No events found.</p>
-          ) : (
+          )}
+
+          {/* SUCCESS STATE */}
+          {!loading && !error && filteredEvents.length > 0 && (
             <div className="mt-10 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
               {filteredEvents.map((event) => (
                 <EventCard
@@ -168,11 +249,25 @@ export default function Home() {
         <p className="mt-3 text-slate-600 text-center max-w-xl mx-auto">
           Join a community and get first access to their events.
         </p>
-        <div className="mt-12 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          {clubs.map((club) => (
-            <ClubCard key={club.id} club={club} />
-          ))}
-        </div>
+
+        {loading ? (
+          <div className="mt-12 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            {[1, 2, 3, 4].map((n) => (
+              <div key={n} className="card p-6 space-y-3">
+                <div className="skeleton h-16 w-16 rounded-full mx-auto" />
+                <div className="skeleton h-4 w-1/2 mx-auto" />
+              </div>
+            ))}
+          </div>
+        ) : (
+          !error && (
+            <div className="mt-12 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+              {clubs.map((club) => (
+                <ClubCard key={club.id} club={club} />
+              ))}
+            </div>
+          )
+        )}
       </section>
 
       {/* CTA */}
