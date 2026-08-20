@@ -2,7 +2,8 @@ import { useState } from 'react'
 import StatCard from '../components/StatCard.jsx'
 import EventCard from '../components/EventCard.jsx'
 import EventModal from '../components/EventModal.jsx'
-import { events } from '../data/events.js'
+import { useFetch } from '../hooks/useFetch.js'
+import { getEvents } from '../services/api.js'
 import { clubs } from '../data/clubs.js'
 
 function formatDate(iso) {
@@ -15,12 +16,6 @@ const notifications = [
   { id: 3, text: 'AI/ML Workshop has 2 seats left.', time: '2d ago' },
 ]
 
-// Pretend the current user registered for the first four events — this is
-// still static mock data, same as Practical 1. Practical 4 replaces this
-// with "events the logged-in user actually registered for" from the API.
-const myEvents = events.slice(0, 4)
-const upcomingEvents = events.slice(2, 5)
-
 export default function Dashboard() {
   // Mobile sidebar open/closed. Sidebar is always visible on desktop
   // (md:block) — this state only matters below the md breakpoint.
@@ -32,6 +27,20 @@ export default function Dashboard() {
   // Selected event for the shared EventModal (null = closed), reused
   // identically to how Home.jsx drives the same component.
   const [selectedEvent, setSelectedEvent] = useState(null)
+
+  // Same useFetch hook Home.jsx uses — this is the payoff of Step 5:
+  // no new useState/useEffect/try-catch had to be written here at all.
+  const { data: events, loading: eventsLoading, error: eventsError, retry: retryEvents } = useFetch(
+    () => getEvents(),
+    [],
+  )
+  const eventsList = events ?? []
+
+  // Pretend the current user registered for the first four events — still
+  // mock data, same as Practical 1. Practical 4 replaces this with "events
+  // the logged-in user actually registered for" from the API.
+  const myEvents = eventsList.slice(0, 4)
+  const upcomingEvents = eventsList.slice(2, 5)
 
   return (
     <div className="container-page py-8 flex gap-8">
@@ -114,7 +123,7 @@ export default function Dashboard() {
 
         {/* STAT CARDS */}
         <div className="mt-8 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          <StatCard label="Registered events" value={myEvents.length} badge="+2 this month" />
+          <StatCard label="Registered events" value={eventsLoading ? '—' : myEvents.length} badge="+2 this month" />
           <StatCard label="Clubs joined" value={3} badge="Active" badgeClass="badge-brand" />
           <StatCard label="Upcoming this week" value={2} badge="Don't miss out" badgeClass="badge-warning" />
           <StatCard label="Certificates earned" value={6} badge="All time" />
@@ -124,35 +133,63 @@ export default function Dashboard() {
           {/* REGISTERED EVENTS */}
           <div className="lg:col-span-2">
             <h2 className="text-xl font-semibold">Your registered events</h2>
-            <div className="mt-5 space-y-4">
-              {myEvents.map((event) => (
-                <button
-                  key={event.id}
-                  type="button"
-                  onClick={() => setSelectedEvent(event)}
-                  className="card p-4 flex items-center gap-4 w-full text-left hover:border-brand-200 transition"
-                >
-                  <img src={event.poster} alt={event.title} className="h-16 w-16 rounded-xl object-cover shrink-0" />
-                  <div className="min-w-0 flex-1">
-                    <p className="font-medium text-slate-900 truncate">{event.title}</p>
-                    <p className="text-sm text-slate-500">{event.club} · {formatDate(event.date)}</p>
-                  </div>
-                  <span className="badge-success shrink-0">Confirmed</span>
-                </button>
-              ))}
-            </div>
 
-            <h2 className="text-xl font-semibold mt-10">Upcoming events</h2>
-            <div className="mt-5 grid grid-cols-1 sm:grid-cols-2 gap-6">
-              {upcomingEvents.map((event) => (
-                <EventCard
-                  key={event.id}
-                  event={event}
-                  onRegister={setSelectedEvent}
-                  onViewDetails={setSelectedEvent}
-                />
-              ))}
-            </div>
+            {eventsLoading && (
+              <div className="mt-5 space-y-4">
+                {[1, 2].map((n) => (
+                  <div key={n} className="card p-4 flex items-center gap-4">
+                    <div className="skeleton h-16 w-16 rounded-xl shrink-0" />
+                    <div className="flex-1 space-y-2">
+                      <div className="skeleton h-4 w-1/2" />
+                      <div className="skeleton h-3 w-1/3" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {!eventsLoading && eventsError && (
+              <div className="mt-5">
+                <p className="text-rose-600 text-sm font-medium">Unable to load your events.</p>
+                <button type="button" onClick={retryEvents} className="btn-secondary mt-3 !py-1.5 !px-4 text-xs">
+                  Retry
+                </button>
+              </div>
+            )}
+
+            {!eventsLoading && !eventsError && (
+              <>
+                <div className="mt-5 space-y-4">
+                  {myEvents.map((event) => (
+                    <button
+                      key={event.id}
+                      type="button"
+                      onClick={() => setSelectedEvent(event)}
+                      className="card p-4 flex items-center gap-4 w-full text-left hover:border-brand-200 transition"
+                    >
+                      <img src={event.poster} alt={event.title} className="h-16 w-16 rounded-xl object-cover shrink-0" />
+                      <div className="min-w-0 flex-1">
+                        <p className="font-medium text-slate-900 truncate">{event.title}</p>
+                        <p className="text-sm text-slate-500">{event.club} · {formatDate(event.date)}</p>
+                      </div>
+                      <span className="badge-success shrink-0">Confirmed</span>
+                    </button>
+                  ))}
+                </div>
+
+                <h2 className="text-xl font-semibold mt-10">Upcoming events</h2>
+                <div className="mt-5 grid grid-cols-1 sm:grid-cols-2 gap-6">
+                  {upcomingEvents.map((event) => (
+                    <EventCard
+                      key={event.id}
+                      event={event}
+                      onRegister={setSelectedEvent}
+                      onViewDetails={setSelectedEvent}
+                    />
+                  ))}
+                </div>
+              </>
+            )}
           </div>
 
           {/* PROFILE SIDEBAR */}

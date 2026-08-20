@@ -1,8 +1,9 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import EventCard from '../components/EventCard.jsx'
 import ClubCard from '../components/ClubCard.jsx'
 import EventModal from '../components/EventModal.jsx'
+import { useFetch } from '../hooks/useFetch.js'
 import { getEvents, getClubs } from '../services/api.js'
 
 export default function Home() {
@@ -12,71 +13,31 @@ export default function Home() {
   const [selectedEvent, setSelectedEvent] = useState(null)
   const [registeredMessage, setRegisteredMessage] = useState('')
 
-  // --- Step 4: fetched-data state ---
-  // events/clubs now start EMPTY and get filled in by useEffect once the
-  // (mock) async request resolves — the UI no longer reads the imported
-  // arrays directly.
-  const [events, setEvents] = useState([])
-  const [clubs, setClubs] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(null)
-
-  // Bumping this number re-runs the effect below — it's how the Retry
-  // button re-triggers the fetch without duplicating the fetch logic.
-  const [retryCount, setRetryCount] = useState(0)
-
-  // Visiting "/?demoError=1" safely demonstrates the error state without
-  // touching any code: it's read from the URL via React Router, not from
-  // document/location directly, and it doesn't persist anywhere.
+  // Visiting "/?demoError=1" safely demonstrates the error state — read
+  // from the URL via React Router, not document/location directly.
   const [searchParams] = useSearchParams()
   const forceError = searchParams.get('demoError') === '1'
 
-  // useEffect is needed here because fetching data is a SIDE EFFECT —
-  // something that reaches outside of "compute UI from props/state" and
-  // happens once when the component appears on screen, not on every
-  // render. The dependency array [retryCount, forceError] means: run this
-  // once when Home first mounts, and run it again only if retryCount or
-  // forceError change (i.e. when the user clicks Retry) — not on every
-  // keystroke in the search box.
-  useEffect(() => {
-    let cancelled = false // guards against setting state after unmount
+  // --- Step 5: same fetching behaviour as Step 4, now via the reusable
+  // useFetch hook instead of a hand-written useEffect in this component.
+  // Two independent calls — one per resource — each with its own
+  // loading/error, which is actually closer to how two separate REST
+  // endpoints (GET /api/events, GET /api/clubs) behave in Practical 4.
+  const {
+    data: events,
+    loading: eventsLoading,
+    error: eventsError,
+    retry: retryEvents,
+  } = useFetch(() => getEvents(forceError), [forceError])
 
-    async function loadData() {
-      try {
-        setLoading(true)
-        setError(null)
+  const { data: clubs, loading: clubsLoading, error: clubsError } = useFetch(() => getClubs(), [])
 
-        // Both requests run in parallel; await pauses this function until
-        // both Promises settle, without blocking the rest of the app.
-        const [eventsData, clubsData] = await Promise.all([
-          getEvents(forceError),
-          getClubs(),
-        ])
+  const eventsList = events ?? []
+  const clubsList = clubs ?? []
 
-        if (!cancelled) {
-          setEvents(eventsData)
-          setClubs(clubsData)
-        }
-      } catch (err) {
-        // A rejected Promise (network/server failure in a real API, or our
-        // simulated one) lands here instead of crashing the component.
-        if (!cancelled) setError(err.message)
-      } finally {
-        // Runs whether the try succeeded or the catch ran — loading always
-        // ends, so the UI never gets stuck on "Loading…" forever.
-        if (!cancelled) setLoading(false)
-      }
-    }
+  const categories = ['All', ...new Set(eventsList.map((e) => e.category))]
 
-    loadData()
-    return () => {
-      cancelled = true
-    }
-  }, [retryCount, forceError])
-
-  const categories = ['All', ...new Set(events.map((e) => e.category))]
-
-  const filteredEvents = events.filter((event) => {
+  const filteredEvents = eventsList.filter((event) => {
     const matchesCategory = selectedCategory === 'All' || event.category === selectedCategory
     const matchesSearch = event.title.toLowerCase().includes(searchText.toLowerCase())
     return matchesCategory && matchesSearch
@@ -194,7 +155,7 @@ export default function Home() {
           )}
 
           {/* LOADING STATE */}
-          {loading && (
+          {eventsLoading && (
             <div className="mt-10 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
               {[1, 2, 3].map((n) => (
                 <div key={n} className="card p-5 space-y-3">
@@ -208,27 +169,23 @@ export default function Home() {
           )}
 
           {/* ERROR STATE */}
-          {!loading && error && (
+          {!eventsLoading && eventsError && (
             <div className="mt-10 text-center">
               <p className="text-rose-600 font-medium">Unable to load events. Please try again.</p>
-              <p className="text-sm text-slate-500 mt-1">{error}</p>
-              <button
-                type="button"
-                onClick={() => setRetryCount((count) => count + 1)}
-                className="btn-secondary mt-4"
-              >
+              <p className="text-sm text-slate-500 mt-1">{eventsError}</p>
+              <button type="button" onClick={retryEvents} className="btn-secondary mt-4">
                 Retry
               </button>
             </div>
           )}
 
           {/* EMPTY STATE */}
-          {!loading && !error && filteredEvents.length === 0 && (
+          {!eventsLoading && !eventsError && filteredEvents.length === 0 && (
             <p className="mt-10 text-center text-slate-500">No events found.</p>
           )}
 
           {/* SUCCESS STATE */}
-          {!loading && !error && filteredEvents.length > 0 && (
+          {!eventsLoading && !eventsError && filteredEvents.length > 0 && (
             <div className="mt-10 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
               {filteredEvents.map((event) => (
                 <EventCard
@@ -250,7 +207,7 @@ export default function Home() {
           Join a community and get first access to their events.
         </p>
 
-        {loading ? (
+        {clubsLoading && (
           <div className="mt-12 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
             {[1, 2, 3, 4].map((n) => (
               <div key={n} className="card p-6 space-y-3">
@@ -259,14 +216,18 @@ export default function Home() {
               </div>
             ))}
           </div>
-        ) : (
-          !error && (
-            <div className="mt-12 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-              {clubs.map((club) => (
-                <ClubCard key={club.id} club={club} />
-              ))}
-            </div>
-          )
+        )}
+
+        {!clubsLoading && clubsError && (
+          <p className="mt-12 text-center text-rose-600">Unable to load clubs.</p>
+        )}
+
+        {!clubsLoading && !clubsError && (
+          <div className="mt-12 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            {clubsList.map((club) => (
+              <ClubCard key={club.id} club={club} />
+            ))}
+          </div>
         )}
       </section>
 
