@@ -1,47 +1,46 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useForm } from '../hooks/useForm.js'
 
 const roles = ['Student', 'Organizer', 'Admin']
+
+// Validation rules live here, in the component, not inside useForm — the
+// hook only knows how to RUN a validate function, not what "valid" means
+// for this particular form. A registration form would pass its own.
+function validateLogin(values) {
+  const errors = {}
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(values.email.trim())) {
+    errors.email = 'Enter a valid email address.'
+  }
+  if (values.password.length < 6) {
+    errors.password = 'Password must be at least 6 characters.'
+  }
+  return errors
+}
 
 export default function Login() {
   const navigate = useNavigate()
 
-  // Controlled input state — each field's current value lives here, and
-  // every <input>'s `value` prop reads from it while `onChange` writes back.
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [role, setRole] = useState('Student')
+  // Reusable form logic — values, errors, handleChange, handleSubmit —
+  // comes from useForm. This is the same values/errors/handleChange shape
+  // a future registration/event-creation/club-creation form would reuse.
+  const { values, errors, handleChange, handleSubmit } = useForm(
+    { email: '', password: '', role: 'Student' },
+    validateLogin,
+  )
+
+  // UI-specific state stays OUTSIDE useForm — neither of these is "form
+  // data", they're presentation concerns specific to this one screen:
+  //   showPassword   — a visibility toggle, not a field value
+  //   submitStatus   — drives button label/animation for this simulated
+  //                    login; a registration form might not even have this
   const [showPassword, setShowPassword] = useState(false)
-
-  // Validation messages, keyed by field name, populated only on submit.
-  const [errors, setErrors] = useState({})
-
-  // 'idle' | 'submitting' | 'success' — drives the button label/disabled
-  // state and the success banner. No real backend call yet: submitting
-  // just simulates a short delay, exactly like Practical 1's login.js did.
   const [submitStatus, setSubmitStatus] = useState('idle')
 
-  function validate() {
-    const nextErrors = {}
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
-      nextErrors.email = 'Enter a valid email address.'
-    }
-    if (password.length < 6) {
-      nextErrors.password = 'Password must be at least 6 characters.'
-    }
-    return nextErrors
-  }
-
-  function handleSubmit(event) {
-    event.preventDefault()
-
-    const nextErrors = validate()
-    setErrors(nextErrors)
-
-    if (Object.keys(nextErrors).length > 0) {
-      return
-    }
-
+  // This runs only after useForm's handleSubmit confirms validation
+  // passed — it's the part that's genuinely specific to "logging in",
+  // so it lives in the component instead of the generic hook.
+  function onValidSubmit() {
     setSubmitStatus('submitting')
     // Simulated auth call — Practical 6 replaces this with a real JWT login request.
     setTimeout(() => {
@@ -62,14 +61,15 @@ export default function Login() {
             <p className="mt-1 text-sm text-slate-500">Sign in to manage your events and clubs.</p>
           </div>
 
-          <form onSubmit={handleSubmit} className="mt-8 space-y-5" noValidate>
+          <form onSubmit={handleSubmit(onValidSubmit)} className="mt-8 space-y-5" noValidate>
             <div>
               <label className="form-label" htmlFor="email">College email</label>
               <input
                 id="email"
+                name="email"
                 type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                value={values.email}
+                onChange={handleChange}
                 placeholder="you@college.edu"
                 autoComplete="email"
                 className={`input-field ${errors.email ? '!border-rose-400 focus:!ring-rose-500/30' : ''}`}
@@ -82,9 +82,10 @@ export default function Login() {
               <div className="relative">
                 <input
                   id="password"
+                  name="password"
                   type={showPassword ? 'text' : 'password'}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  value={values.password}
+                  onChange={handleChange}
                   placeholder="••••••••"
                   autoComplete="current-password"
                   className={`input-field pr-16 ${errors.password ? '!border-rose-400 focus:!ring-rose-500/30' : ''}`}
@@ -104,8 +105,9 @@ export default function Login() {
               <label className="form-label" htmlFor="role">I am signing in as</label>
               <select
                 id="role"
-                value={role}
-                onChange={(e) => setRole(e.target.value)}
+                name="role"
+                value={values.role}
+                onChange={handleChange}
                 className="input-field"
               >
                 {roles.map((r) => (
@@ -124,7 +126,7 @@ export default function Login() {
 
             {submitStatus === 'success' && (
               <p className="badge-success !text-sm !px-4 !py-2 w-full justify-center">
-                Signed in as {role}! Redirecting to your dashboard…
+                Signed in as {values.role}! Redirecting to your dashboard…
               </p>
             )}
 
