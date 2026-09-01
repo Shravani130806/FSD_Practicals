@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useForm } from '../hooks/useForm.js'
+import { useAuth } from '../context/AuthContext.jsx'
 
 const roles = ['Student', 'Organizer', 'Admin']
 
@@ -37,6 +38,8 @@ export default function Login() {
   const [showPassword, setShowPassword] = useState(false)
   const [submitStatus, setSubmitStatus] = useState('idle')
 
+  const { login } = useAuth()
+
   // This runs only after useForm's handleSubmit confirms validation
   // passed — it's the part that's genuinely specific to "logging in",
   // so it lives in the component instead of the generic hook.
@@ -45,6 +48,8 @@ export default function Login() {
     // Simulated auth call — Practical 6 replaces this with a real JWT login request.
     setTimeout(() => {
       setSubmitStatus('success')
+      // Update shared auth context with the demo user
+      login(values.email, values.role)
       setTimeout(() => navigate('/dashboard'), 700)
     }, 900)
   }

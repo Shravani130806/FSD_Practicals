@@ -1,4 +1,7 @@
 import { useState } from 'react'
+import { useAuth } from '../context/AuthContext.jsx'
+import { useUsers } from '../context/UserContext.jsx'
+import UserList from '../components/UserList.jsx'
 import StatCard from '../components/StatCard.jsx'
 import EventCard from '../components/EventCard.jsx'
 import EventModal from '../components/EventModal.jsx'
@@ -36,10 +39,12 @@ export default function Dashboard() {
   )
   const eventsList = events ?? []
 
-  // Pretend the current user registered for the first four events — still
-  // mock data, same as Practical 1. Practical 4 replaces this with "events
-  // the logged-in user actually registered for" from the API.
-  const myEvents = eventsList.slice(0, 4)
+  const { user, logout } = useAuth()
+  const { users, registeredEvents } = useUsers() || { users: [], registeredEvents: [] }
+
+  // For Practical 3, the registered events are stored in UserContext as
+  // `registeredEvents` (shared state). Show the events matching those IDs.
+  const myEvents = eventsList.filter((e) => registeredEvents.includes(e.id))
   const upcomingEvents = eventsList.slice(2, 5)
 
   return (
@@ -91,7 +96,9 @@ export default function Dashboard() {
           </button>
 
           <div className="flex-1">
-            <h1 className="text-3xl font-bold">Welcome back, Student! 👋</h1>
+            <h1 className="text-3xl font-bold">
+              {user && user.role ? `Welcome back, ${user.role}! 👋` : 'Welcome to CampusConnect! 👋'}
+            </h1>
             <p className="mt-1 text-slate-500">Here's what's happening with your registrations.</p>
           </div>
 
@@ -199,11 +206,26 @@ export default function Dashboard() {
               <div className="mt-4 flex items-center gap-4">
                 <img src="https://picsum.photos/seed/profile/100/100" alt="Profile" className="h-14 w-14 rounded-full object-cover" />
                 <div>
-                  <p className="font-medium text-slate-900">CampusConnect Student</p>
-                  <p className="text-sm text-slate-500">student@college.edu</p>
+                  <p className="font-medium text-slate-900">{user?.role ? `CampusConnect ${user.role}` : 'CampusConnect Student'}</p>
+                  <p className="text-sm text-slate-500">{user?.email ?? 'student@college.edu'}</p>
                 </div>
               </div>
               <button type="button" className="btn-secondary w-full mt-5 !py-2">Edit profile</button>
+              <button type="button" onClick={() => logout()} className="btn-secondary w-full mt-3 !py-2">Sign out</button>
+
+              <div className="mt-6">
+                <h3 className="text-sm font-semibold">CampusConnect Users</h3>
+                <p className="text-2xl font-bold mt-2">{users.length}</p>
+                <div className="mt-2 text-sm text-slate-600">
+                  <p>Students: {users.filter((u) => u.role === 'Student').length}</p>
+                  <p>Organizers: {users.filter((u) => u.role === 'Organizer').length}</p>
+                  <p>Admins: {users.filter((u) => u.role === 'Admin').length}</p>
+                </div>
+              </div>
+
+              <div className="mt-6">
+                <UserList />
+              </div>
             </div>
           </div>
         </div>

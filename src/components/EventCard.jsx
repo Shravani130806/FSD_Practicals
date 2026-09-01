@@ -1,3 +1,4 @@
+import { useUsers } from "../context/UserContext"
 const categoryBadge = {
   Technical: 'badge-brand',
   Cultural: 'badge-warning',
@@ -22,6 +23,12 @@ export default function EventCard({ event, onRegister, onViewDetails }) {
   const seatsLeft = event.seats - event.registered
   const fillingFast = seatsLeft <= Math.round(event.seats * 0.15)
   const badgeClass = categoryBadge[event.category] ?? 'badge-brand'
+    const { registeredEvents, registerForEvent, unregisterFromEvent } = useUsers() || {
+      registeredEvents: [],
+      registerForEvent: () => {},
+      unregisterFromEvent: () => {},
+    }
+    const isRegistered = registeredEvents.includes(event.id)
 
   return (
     <article className="card-hover overflow-hidden animate-fade-up">
@@ -52,13 +59,20 @@ export default function EventCard({ event, onRegister, onViewDetails }) {
           <span className={fillingFast ? 'badge-warning' : 'badge-success'}>
             {fillingFast ? 'Filling fast' : 'Open'} · {seatsLeft} seats left
           </span>
-          <button
-            type="button"
-            onClick={() => onRegister(event)}
-            className="btn-secondary !py-1.5 !px-3 text-xs"
-          >
-            Register
-          </button>
+            <button
+              type="button"
+              onClick={() => {
+                if (isRegistered) {
+                  unregisterFromEvent(event.id)
+                } else {
+                  registerForEvent(event.id)
+                }
+                if (onRegister) onRegister(event)
+              }}
+              className={isRegistered ? 'btn-primary !py-1.5 !px-3 text-xs' : 'btn-secondary !py-1.5 !px-3 text-xs'}
+            >
+              {isRegistered ? 'Registered ✓' : 'Register'}
+            </button>
         </div>
       </div>
     </article>

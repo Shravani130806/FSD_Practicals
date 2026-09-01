@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useUsers } from '../context/UserContext.jsx'
 import { NavLink, Link } from 'react-router-dom'
 
 // Same markup/classes as Practical 1's navbar.js template, converted to JSX.
@@ -21,6 +22,7 @@ export default function Navbar() {
   // toggle behaviour the old vanilla nav-toggle button had, just expressed
   // as React state instead of manually adding/removing a "hidden" class.
   const [mobileOpen, setMobileOpen] = useState(false)
+  const { registeredEvents } = useUsers() || { registeredEvents: [] }
 
   return (
     <header className="sticky top-0 z-40 bg-white/80 backdrop-blur border-b border-slate-200">
@@ -35,7 +37,12 @@ export default function Navbar() {
         <div className="hidden md:flex items-center gap-8">
           {links.map((link) => (
             <NavLink key={link.to} to={link.to} className={linkClasses} end={link.to === '/'}>
-              {link.label}
+              <div className="flex items-center gap-2">
+                {link.label}
+                {link.to === '/dashboard' && registeredEvents.length > 0 && (
+                  <span className="ml-1 inline-flex items-center justify-center h-5 w-5 rounded-full bg-rose-500 text-white text-[11px]">{registeredEvents.length}</span>
+                )}
+              </div>
             </NavLink>
           ))}
         </div>
