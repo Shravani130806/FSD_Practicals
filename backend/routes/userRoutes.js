@@ -26,6 +26,7 @@ router.post(
     body('name').notEmpty().withMessage('Name is required'),
     body('email').isEmail().withMessage('Please enter a valid email'),
     body('password').isLength({ min: 6 }).withMessage('Password must be at least 6 characters long'),
+    body('role').optional().isIn(['student', 'organizer', 'admin']).withMessage('Role must be student, organizer, or admin'),
   ],
   validate,
   registerUser,
@@ -42,9 +43,8 @@ router.post(
 )
 
 router.get('/profile', protect, getProfile)
-
-module.exports = router
-
-router.get('/admin-test', protect, authorizeRoles('Admin'), (req, res) => {
+router.get('/admin-test', protect, authorizeRoles('admin'), (req, res) => {
   res.json({ message: 'Admin access granted' })
 })
+
+module.exports = router

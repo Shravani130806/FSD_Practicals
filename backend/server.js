@@ -13,9 +13,11 @@ const { errorHandler } = require('./middleware/errorMiddleware')
 const app = express()
 const PORT = process.env.PORT || 5001
 
+app.set('trust proxy', ['loopback', 'linklocal', 'uniquelocal', '172.16.0.0/12'])
+
 const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 5,
+  max: 100,
   standardHeaders: true,
   legacyHeaders: false,
   message: {

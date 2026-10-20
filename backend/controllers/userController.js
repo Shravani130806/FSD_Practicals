@@ -24,7 +24,13 @@ const registerUser = async (req, res, next) => {
   }
 
   try {
-    const { name, email, password } = req.body
+    const { name, email, password, role = 'student' } = req.body
+    const normalizedRole = String(role).toLowerCase()
+
+    const allowedRoles = ['student', 'organizer', 'admin']
+    if (!allowedRoles.includes(normalizedRole)) {
+      return res.status(400).json({ message: 'Invalid role selected' })
+    }
 
     const existingUser = await User.findOne({ email })
     if (existingUser) {
@@ -36,7 +42,7 @@ const registerUser = async (req, res, next) => {
       name,
       email,
       password: hashedPassword,
-      role: 'student',
+      role: normalizedRole,
     })
 
     res.status(201).json({

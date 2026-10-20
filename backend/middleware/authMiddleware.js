@@ -8,7 +8,6 @@ const protect = (req, res, next) => {
   }
 
   const token = authHeader.split(' ')[1]
-
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET)
     req.user = {
@@ -23,7 +22,10 @@ const protect = (req, res, next) => {
 
 const authorizeRoles = (...allowedRoles) => {
   return (req, res, next) => {
-    if (!req.user || !allowedRoles.includes(req.user.role)) {
+    const permittedRoles = allowedRoles.map((role) => String(role).toLowerCase())
+    const userRole = String(req.user?.role || '').toLowerCase()
+
+    if (!req.user || !permittedRoles.includes(userRole)) {
       return res.status(403).json({ message: 'You are not authorized to access this resource' })
     }
 
