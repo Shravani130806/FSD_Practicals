@@ -1,11 +1,5 @@
-// Mock async data service with production-ready env support.
-//
-// This project currently uses local demo data so the UI still works without a
-// running backend. When VITE_API_URL is configured, the same functions can call
-// the real backend instead of the mock arrays.
-
-import { events } from '../data/events.js'
 import { clubs } from '../data/clubs.js'
+import { events as fallbackEvents } from '../data/events.js'
 
 const DELAY_MS = 700
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001'
@@ -22,32 +16,90 @@ function mockRequest(data, shouldFail) {
   })
 }
 
+function getJsonError(response, fallbackMessage) {
+  return response.text().then((text) => {
+    try {
+      const payload = JSON.parse(text)
+      return payload.message || payload.error || fallbackMessage
+    } catch {
+      return text || fallbackMessage
+    }
+  })
+}
+
+function getAuthHeaders(token) {
+  const headers = { 'Content-Type': 'application/json' }
+
+  if (token) {
+    headers.Authorization = `Bearer ${token}`
+  }
+
+  return headers
+}
+
 export async function getEvents(shouldFail = false) {
   const hasApiUrl = Boolean(import.meta.env.VITE_API_URL)
 
   if (!hasApiUrl) {
-    return mockRequest(events, shouldFail)
+    return mockRequest(fallbackEvents, shouldFail)
   }
 
   const response = await fetch(`${API_BASE_URL}/api/events`)
   if (!response.ok) {
-    throw new Error(`Failed to fetch events: ${response.status}`)
+    const message = await getJsonError(response, 'Failed to load events')
+    throw new Error(message)
   }
 
   return response.json()
 }
 
-export async function getClubs(shouldFail = false) {
-  const hasApiUrl = Boolean(import.meta.env.VITE_API_URL)
+export async function getClubs() {
+  return mockRequest(clubs, false)
+}
 
-  if (!hasApiUrl) {
-    return mockRequest(clubs, shouldFail)
-  }
+export async function loginUser({ email, password }) {
+  const response = await fetch(`${API_BASE_URL}/api/users/login`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify({ email, password }),
+  })
 
-  const response = await fetch(`${API_BASE_URL}/api/clubs`)
+  const payload = await response.json().catch(() => ({}))
+
   if (!response.ok) {
-    throw new Error(`Failed to fetch clubs: ${response.status}`)
+    throw new Error(payload.message || 'Login failed')
   }
 
-  return response.json()
+  return payload
+}
+
+export async function registerUser({ name, email, password, role }) {
+  const response = await fetch(`${API_BASE_URL}/api/users/register`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify({ name, email, password, role }),
+  })
+
+  const payload = await response.json().catch(() => ({}))
+
+  if (!response.ok) {
+    throw new Error(payload.message || 'Registration failed')
+  }
+
+  return payload
+}
+
+export async function getProfile(token) {
+  const response = await fetch(`${API_BASE_URL}/api/users/profile`, {
+    method: 'GET',
+    headers: getAuthHeaders(token),
+  })
+
+  const payload = await response.json().catch(() => ({}))
+
+  if (!response.ok) {
+    throw new Error(payload.message || 'Unable to fetch profile')
+  }
+
+  return payload
 }

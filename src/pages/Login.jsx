@@ -2,12 +2,10 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useForm } from '../hooks/useForm.js'
 import { useAuth } from '../context/AuthContext.jsx'
+import { getProfile, loginUser } from '../services/api.js'
 
 const roles = ['Student', 'Organizer', 'Admin']
 
-// Validation rules live here, in the component, not inside useForm — the
-// hook only knows how to RUN a validate function, not what "valid" means
-// for this particular form. A registration form would pass its own.
 function validateLogin(values) {
   const errors = {}
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(values.email.trim())) {
@@ -21,37 +19,37 @@ function validateLogin(values) {
 
 export default function Login() {
   const navigate = useNavigate()
-
-  // Reusable form logic — values, errors, handleChange, handleSubmit —
-  // comes from useForm. This is the same values/errors/handleChange shape
-  // a future registration/event-creation/club-creation form would reuse.
   const { values, errors, handleChange, handleSubmit } = useForm(
     { email: '', password: '', role: 'Student' },
     validateLogin,
   )
 
-  // UI-specific state stays OUTSIDE useForm — neither of these is "form
-  // data", they're presentation concerns specific to this one screen:
-  //   showPassword   — a visibility toggle, not a field value
-  //   submitStatus   — drives button label/animation for this simulated
-  //                    login; a registration form might not even have this
   const [showPassword, setShowPassword] = useState(false)
   const [submitStatus, setSubmitStatus] = useState('idle')
+  const [submitError, setSubmitError] = useState('')
 
   const { login } = useAuth()
 
-  // This runs only after useForm's handleSubmit confirms validation
-  // passed — it's the part that's genuinely specific to "logging in",
-  // so it lives in the component instead of the generic hook.
-  function onValidSubmit() {
+  async function onValidSubmit() {
     setSubmitStatus('submitting')
-    // Simulated auth call — Practical 6 replaces this with a real JWT login request.
-    setTimeout(() => {
+    setSubmitError('')
+
+    try {
+      const result = await loginUser({
+        email: values.email.trim(),
+        password: values.password,
+      })
+
+      const profile = await getProfile(result.token)
+      const nextRole = profile.role || values.role
+      login(profile.email || values.email, nextRole, result.token, profile)
+
       setSubmitStatus('success')
-      // Update shared auth context with the demo user
-      login(values.email, values.role)
       setTimeout(() => navigate('/dashboard'), 700)
-    }, 900)
+    } catch (error) {
+      setSubmitStatus('error')
+      setSubmitError(error.message)
+    }
   }
 
   return (
@@ -131,12 +129,18 @@ export default function Login() {
 
             {submitStatus === 'success' && (
               <p className="badge-success !text-sm !px-4 !py-2 w-full justify-center">
-                Signed in as {values.role}! Redirecting to your dashboard…
+                Signed in successfully! Redirecting to your dashboard…
               </p>
             )}
 
-            <button type="submit" disabled={submitStatus !== 'idle'} className="btn-primary w-full">
-              {submitStatus === 'submitting' ? 'Signing in…' : submitStatus === 'success' ? 'Signed in ✓' : 'Sign in'}
+            {submitStatus === 'error' && (
+              <p className="badge-warning !text-sm !px-4 !py-2 w-full justify-center">
+                {submitError || 'Unable to sign in.'}
+              </p>
+            )}
+
+            <button type="submit" disabled={submitStatus === 'submitting'} className="btn-primary w-full">
+              {submitStatus === 'submitting' ? 'Signing in…' : 'Sign in'}
             </button>
           </form>
 
