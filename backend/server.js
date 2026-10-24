@@ -12,6 +12,10 @@ const { errorHandler } = require('./middleware/errorMiddleware')
 
 const app = express()
 const PORT = process.env.PORT || 5001
+const allowedOrigins = [
+  'http://localhost:5173',
+  process.env.FRONTEND_URL,
+].filter(Boolean)
 
 app.set('trust proxy', ['loopback', 'linklocal', 'uniquelocal', '172.16.0.0/12'])
 
@@ -25,8 +29,20 @@ const apiLimiter = rateLimit({
   },
 })
 
+const corsOptions = {
+  origin: (origin, callback) => {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true)
+      return
+    }
+
+    callback(new Error('Not allowed by CORS'))
+  },
+  credentials: false,
+}
+
 app.use(helmet())
-app.use(cors())
+app.use(cors(corsOptions))
 app.use(express.json())
 app.use(apiLimiter)
 

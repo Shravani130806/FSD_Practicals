@@ -1,31 +1,15 @@
-// Mock async data service.
+// Mock async data service with production-ready env support.
 //
-// This is NOT a real backend. It exists so Home.jsx can call something
-// that *behaves* like a network request — a Promise that resolves after a
-// short delay — instead of reading the data arrays directly and synchronously.
-//
-// In Practical 4, only the INSIDE of these two functions changes:
-//
-//   export async function getEvents() {
-//     const res = await fetch('/api/events')
-//     return res.json()
-//   }
-//
-// Home.jsx will not need to change at all, because it only ever calls
-// getEvents()/getClubs() and awaits a Promise — it never knew whether the
-// data came from an in-memory array or a real Express/MongoDB API.
+// This project currently uses local demo data so the UI still works without a
+// running backend. When VITE_API_URL is configured, the same functions can call
+// the real backend instead of the mock arrays.
 
 import { events } from '../data/events.js'
 import { clubs } from '../data/clubs.js'
 
 const DELAY_MS = 700
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001'
 
-/**
- * Resolves with `data` after DELAY_MS, or rejects with an Error if
- * `shouldFail` is true. `shouldFail` exists only so the UI's error state
- * can be demonstrated on demand — a real API call would fail on its own
- * (network error, server error) without needing this flag.
- */
 function mockRequest(data, shouldFail) {
   return new Promise((resolve, reject) => {
     setTimeout(() => {
@@ -39,9 +23,31 @@ function mockRequest(data, shouldFail) {
 }
 
 export async function getEvents(shouldFail = false) {
-  return mockRequest(events, shouldFail)
+  const hasApiUrl = Boolean(import.meta.env.VITE_API_URL)
+
+  if (!hasApiUrl) {
+    return mockRequest(events, shouldFail)
+  }
+
+  const response = await fetch(`${API_BASE_URL}/api/events`)
+  if (!response.ok) {
+    throw new Error(`Failed to fetch events: ${response.status}`)
+  }
+
+  return response.json()
 }
 
 export async function getClubs(shouldFail = false) {
-  return mockRequest(clubs, shouldFail)
+  const hasApiUrl = Boolean(import.meta.env.VITE_API_URL)
+
+  if (!hasApiUrl) {
+    return mockRequest(clubs, shouldFail)
+  }
+
+  const response = await fetch(`${API_BASE_URL}/api/clubs`)
+  if (!response.ok) {
+    throw new Error(`Failed to fetch clubs: ${response.status}`)
+  }
+
+  return response.json()
 }
