@@ -5,23 +5,33 @@ const { Server } = require('socket.io')
 
 const app = express()
 const server = http.createServer(app)
-const PORT = 5002
-const FRONTEND_ORIGIN = 'http://localhost:5174'
+const PORT = Number(process.env.PORT) || 5002
+const allowedOrigins = [
+  'http://localhost:5173',
+  'http://localhost:5174',
+  ...String(process.env.FRONTEND_ORIGIN || '')
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean),
+]
 
-app.use(
-  cors({
-    origin: FRONTEND_ORIGIN,
-    methods: ['GET', 'POST'],
-    credentials: true,
-  }),
-)
+const corsOptions = {
+  origin: (origin, callback) => {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true)
+      return
+    }
+
+    callback(new Error('Not allowed by CORS'))
+  },
+  methods: ['GET', 'POST'],
+  credentials: true,
+}
+
+app.use(cors(corsOptions))
 
 const io = new Server(server, {
-  cors: {
-    origin: FRONTEND_ORIGIN,
-    methods: ['GET', 'POST'],
-    credentials: true,
-  },
+  cors: corsOptions,
 })
 
 io.on('connection', (socket) => {
@@ -46,6 +56,6 @@ io.on('connection', (socket) => {
   })
 })
 
-server.listen(PORT, () => {
+server.listen(PORT, '0.0.0.0', () => {
   console.log(`WebSocket server running on port ${PORT}`)
 })

@@ -5,6 +5,7 @@ import Home from './pages/Home.jsx'
 import Login from './pages/Login.jsx'
 import Register from './pages/Register.jsx'
 import Dashboard from './pages/Dashboard.jsx'
+import Chat from './pages/Chat.jsx'
 
 // Navbar/Footer render on every route (same as every Practical 1 page having
 // its own copy of the navbar/footer markup). <Routes> swaps only the middle
@@ -19,6 +20,7 @@ export default function App() {
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
           <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/chat" element={<Chat />} />
         </Routes>
       </main>
       <Footer />

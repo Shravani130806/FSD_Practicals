@@ -8,6 +8,7 @@ import { NavLink, Link } from 'react-router-dom'
 const links = [
   { to: '/', label: 'Home' },
   { to: '/dashboard', label: 'Dashboard' },
+  { to: '/chat', label: 'Chat' },
   { to: '/login', label: 'Login' },
 ]
 
