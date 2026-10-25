@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { useForm } from '../hooks/useForm.js'
 import { useAuth } from '../context/AuthContext.jsx'
 import { getProfile, loginUser } from '../services/api.js'
@@ -146,7 +146,7 @@ export default function Login() {
 
           <p className="mt-6 text-center text-sm text-slate-500">
             New to CampusConnect?{' '}
-            <a href="#" className="text-brand-600 font-medium hover:text-brand-700">Create an account</a>
+            <Link to="/register" className="text-brand-600 font-medium hover:text-brand-700">Create an account</Link>
           </p>
         </div>
       </div>
